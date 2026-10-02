@@ -2,6 +2,7 @@
 
 /* eslint-disable react-hooks/set-state-in-effect, @next/next/no-html-link-for-pages */
 
+import { generateAvailability, type AvailabilityGeneration } from "@/lib/availability-generator";
 import { useCallback, useEffect, useState } from "react";
 import {
   Banknote, BarChart3, CalendarCheck, CalendarClock, Check, ChevronRight, CircleDollarSign,
@@ -70,7 +71,7 @@ export function AdminApp() {
   const [deleteTarget, setDeleteTarget] = useState<{ table: string; id: string; label: string } | null>(null);
   const [serviceDialog, setServiceDialog] = useState<Service | Partial<Service> | null>(null);
   const [availabilityDialog, setAvailabilityDialog] = useState<Availability | Partial<Availability> | null>(null);
-  const [bulkAvailabilityDialog, setBulkAvailabilityDialog] = useState(false);
+  const [bulkAvailabilityDialog, setBulkAvailabilityDialog] = useState<string | null>(null);
   const [clientDialog, setClientDialog] = useState<Client | Partial<Client> | null>(null);
   const [expenseDialog, setExpenseDialog] = useState<Expense | Partial<Expense> | null>(null);
   const [appointmentDialog, setAppointmentDialog] = useState<Appointment | Partial<Appointment> | null>(null);
@@ -118,16 +119,13 @@ export function AdminApp() {
 
   useEffect(() => { if (authenticated) { Promise.resolve().then(() => loadTab(tab)); if (tab !== "settings") Promise.resolve().then(() => loadSettings().catch(() => undefined)); } }, [authenticated, tab, loadTab, loadSettings]);
 
-  async function addFullDayAvailability(value: { available_date: string; start_time: string; end_time: string; interval: number }) {
-    const [sh, sm] = value.start_time.split(":").map(Number); const [eh, em] = value.end_time.split(":").map(Number);
-    const startMinutes = sh * 60 + sm; const endMinutes = eh * 60 + em;
-    if (endMinutes <= startMinutes) throw new Error("O horário final deve ser maior que o inicial.");
-    const existingTimes = new Set(availability.filter((row) => row.available_date === value.available_date).map((row) => String(row.start_time).slice(0, 5)));
-    const rows: Record<string, unknown>[] = [];
-    for (let minutes = startMinutes; minutes < endMinutes; minutes += value.interval) { const time = String(Math.floor(minutes / 60)).padStart(2, "0") + ":" + String(minutes % 60).padStart(2, "0"); if (!existingTimes.has(time)) rows.push({ available_date: value.available_date, start_time: time, active: true, blocked: false, block_reason: null }); }
-    if (!rows.length) { toast.info("Todos os horários desse período já estão cadastrados."); setBulkAvailabilityDialog(false); return; }
-    await supabaseRequest("availability", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify(rows) }, true);
-    toast.success(rows.length + " horários liberados com sucesso."); setBulkAvailabilityDialog(false); await loadTab("availability");
+  async function addFullDayAvailability(value: AvailabilityGeneration) {
+    const rows = generateAvailability(value);
+    const inserted = await supabaseRequest<Availability[]>("availability?on_conflict=available_date,start_time", {
+      method: "POST", headers: { Prefer: "resolution=ignore-duplicates,return=representation" }, body: JSON.stringify(rows),
+    }, true);
+    toast.success(inserted.length ? `${inserted.length} horários adicionados. Horários existentes foram preservados.` : "Todos os horários já estão cadastrados.");
+    setBulkAvailabilityDialog(null); await loadTab("availability");
   }
 
   async function logout() { await signOut(); setAuthenticated(false); toast.success("Sessão encerrada."); }
@@ -207,7 +205,7 @@ export function AdminApp() {
           {tab === "services" && <Services rows={services} search={search} setSearch={setSearch} onNew={() => setServiceDialog({ active: true, display_order: 0 })} onEdit={setServiceDialog} onDelete={(row) => setDeleteTarget({ table: "services", id: row.id, label: "Serviço" })} onToggle={toggleService} />}
           {tab === "quotes" && <Quotes rows={quotes} search={search} setSearch={setSearch} onAction={updateQuote} />}
           {tab === "agenda" && <Agenda rows={appointments} search={search} setSearch={setSearch} onNew={() => setAppointmentDialog({ status: "Agendado", scheduled_date: today, scheduled_time: "09:00", total: 0 })} onEdit={setAppointmentDialog} onStatus={changeAppointmentStatus} onReceipt={(row) => downloadReceipt(row, studio)} />}
-          {tab === "availability" && <AvailabilityPanel rows={availability} onNew={() => setAvailabilityDialog({ available_date: today, start_time: "09:00", active: true, blocked: false })} onBulk={() => setBulkAvailabilityDialog(true)} onEdit={setAvailabilityDialog} onDelete={(row) => setDeleteTarget({ table: "availability", id: row.id, label: "Horário" })} onToggle={(row, active) => saveRecord("availability", { active }, row.id).catch((e) => toast.error(e.message))} />}
+          {tab === "availability" && <AvailabilityPanel rows={availability} onNew={() => setBulkAvailabilityDialog(today)} onBulk={(date) => setBulkAvailabilityDialog(date || today)} onEdit={setAvailabilityDialog} onDelete={(row) => setDeleteTarget({ table: "availability", id: row.id, label: "Horário" })} onToggle={(row, active) => saveRecord("availability", { active }, row.id).catch((e) => toast.error(e.message))} />}
           {tab === "clients" && <Clients rows={clients} search={search} setSearch={setSearch} onNew={() => setClientDialog({})} onEdit={setClientDialog} onDelete={(row) => setDeleteTarget({ table: "clients", id: row.id, label: "Cliente" })} onHistory={openHistory} />}
           {tab === "attendances" && <Attendances rows={attendances} studio={studio} />}
           {tab === "finance" && <Finance attendances={attendances} expenses={expenses} studio={studio} onNewExpense={() => setExpenseDialog({ expense_date: today, payment_method: "Pix" })} onEditExpense={setExpenseDialog} onDeleteExpense={(row) => setDeleteTarget({ table: "expenses", id: row.id, label: "Despesa" })} />}
@@ -217,7 +215,7 @@ export function AdminApp() {
 
       <ServiceForm key={serviceDialog?.id || (serviceDialog ? "service-new" : "service-closed")} value={serviceDialog} close={() => setServiceDialog(null)} save={async (value) => { await saveRecord("services", value, serviceDialog?.id); setServiceDialog(null); }} />
       <AvailabilityForm key={availabilityDialog?.id || (availabilityDialog ? "slot-new" : "slot-closed")} value={availabilityDialog} close={() => setAvailabilityDialog(null)} save={async (value) => { await saveRecord("availability", value, availabilityDialog?.id); setAvailabilityDialog(null); }} />
-      <BulkAvailabilityForm open={bulkAvailabilityDialog} close={() => setBulkAvailabilityDialog(false)} save={addFullDayAvailability} />
+      <BulkAvailabilityForm date={bulkAvailabilityDialog} close={() => setBulkAvailabilityDialog(null)} save={addFullDayAvailability} />
       <ClientForm key={clientDialog?.id || (clientDialog ? "client-new" : "client-closed")} value={clientDialog} close={() => setClientDialog(null)} save={async (value) => { await saveRecord("clients", { ...value, phone: normalizePhone(String(value.phone || "")) }, clientDialog?.id); setClientDialog(null); }} />
       <ExpenseForm key={expenseDialog?.id || (expenseDialog ? "expense-new" : "expense-closed")} value={expenseDialog} close={() => setExpenseDialog(null)} save={async (value) => { await saveRecord("expenses", value, expenseDialog?.id); setExpenseDialog(null); }} />
       <AppointmentForm key={appointmentDialog?.id || (appointmentDialog ? "appointment-new" : "appointment-closed")} value={appointmentDialog} close={() => setAppointmentDialog(null)} save={async (value) => {
@@ -294,7 +292,7 @@ function Agenda({ rows, search, setSearch, onNew, onEdit, onStatus, onReceipt }:
   return <><PageTitle eyebrow="Organização diária" title="Agenda" description="Somente atendimentos concluídos entram no faturamento." action={<button className="admin-primary" onClick={onNew}><Plus /> Novo agendamento</button>}><SearchBox value={search} setValue={setSearch} placeholder="Pesquisar cliente ou serviço" /></PageTitle>{filtered.length ? <div className="table-shell"><table><thead><tr><th>Cliente</th><th>Serviço</th><th>Data e horário</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead><tbody>{filtered.map((row) => <tr key={row.id}><td><strong>{row.client_name}</strong><small>{row.client_phone}</small></td><td><strong>{row.service_summary}</strong><small>{row.notes || "Sem observações"}</small></td><td><strong>{dateBR(row.scheduled_date)}</strong><small>{String(row.scheduled_time).slice(0,5)}</small></td><td><strong>{money(row.total)}</strong></td><td><select className={statusClass(row.status)} value={row.status} onChange={(e) => onStatus(row,e.target.value)}><option>Agendado</option><option>Confirmado</option><option>Concluído</option><option>Cancelado</option></select></td><td><div className="row-actions"><a href={whatsappClient(row.client_phone, `Olá, ${row.client_name}! Estou entrando em contato sobre seu horário no Studio Capricho Hair.`)} target="_blank" title="WhatsApp"><MessageCircle /></a>{row.status === "Concluído" ? <button onClick={() => onReceipt(row)} title="Baixar recibo"><ReceiptText /></button> : <button onClick={() => onEdit(row)} title="Editar"><Pencil /></button>}</div></td></tr>)}</tbody></table></div> : <Empty icon={CalendarCheck} title="Agenda vazia" text="Crie um agendamento ou confirme uma solicitação." />}</>;
 }
 
-function AvailabilityPanel({ rows, onNew, onBulk, onEdit, onDelete, onToggle }: { rows:Availability[]; onNew:()=>void; onBulk:()=>void; onEdit:(r:Availability)=>void; onDelete:(r:Availability)=>void; onToggle:(r:Availability,v:boolean)=>void }) {
+function AvailabilityPanel({ rows, onNew, onBulk, onEdit, onDelete, onToggle }: { rows:Availability[]; onNew:()=>void; onBulk:(date?:string)=>void; onEdit:(r:Availability)=>void; onDelete:(r:Availability)=>void; onToggle:(r:Availability,v:boolean)=>void }) {
   const [filterDate, setFilterDate] = useState("");
   const [period, setPeriod] = useState<"all"|"today"|"week">("all");
   const now = new Date();
@@ -325,7 +323,7 @@ function AvailabilityPanel({ rows, onNew, onBulk, onEdit, onDelete, onToggle }: 
   }
 
   return <div className="availability-page">
-    <PageTitle eyebrow="Agenda pública" title="Disponibilidade" description="Controle exatamente quais dias e horários podem ser escolhidos pelas clientes." action={<div className="availability-actions"><button className="admin-secondary" onClick={onBulk}><CalendarClock /> Liberar período</button><button className="admin-primary" onClick={onNew}><Plus /> Novo horário</button></div>} />
+    <PageTitle eyebrow="Agenda pública" title="Disponibilidade" description="Controle exatamente quais dias e horários podem ser escolhidos pelas clientes." action={<div className="availability-actions"><button className="admin-secondary" onClick={()=>onBulk(filterDate || today)}><CalendarClock /> Gerar horários</button><button className="admin-primary" onClick={onNew}><Plus /> Novo horário</button></div>} />
 
     <div className="availability-summary">
       <article><span>Dias configurados</span><strong>{days.length}</strong><small>No filtro atual</small></article>
@@ -350,7 +348,7 @@ function AvailabilityPanel({ rows, onNew, onBulk, onEdit, onDelete, onToggle }: 
       return <section className="availability-day" key={date}>
         <header>
           <div><span>{dayLabel(date)}</span><strong>{dateBR(date)}</strong></div>
-          <div className="availability-day-meta"><b>{available} disponíveis</b>{blocked > 0 && <small>{blocked} bloqueados</small>}<button className="day-edit" onClick={()=>onBulk()}>Liberar período</button></div>
+          <div className="availability-day-meta"><b>{available} disponíveis</b>{blocked > 0 && <small>{blocked} bloqueados</small>}<button className="day-edit" onClick={()=>onBulk(date)}>Adicionar neste dia</button></div>
         </header>
         <div className="availability-slots">{dayRows.sort((a,b)=>String(a.start_time).localeCompare(String(b.start_time))).map((row) => {
           const status = row.blocked ? "blocked" : row.active ? "active" : "inactive";
@@ -388,11 +386,33 @@ function SettingsPanel({ value, setValue, save }: { value:StudioSettings; setVal
 
 function Field({ label, wide=false, children }: { label:string; wide?:boolean; children:React.ReactNode }) { return <label className={wide?"settings-field wide":"settings-field"}><span>{label}</span>{children}</label>; }
 
-function FormDialog({ open, title, description, close, submit, children }: { open:boolean; title:string; description:string; close:()=>void; submit:(e:React.FormEvent)=>void|Promise<void>; children:React.ReactNode }) { const [submitting,setSubmitting]=useState(false); async function handleSubmit(event:React.FormEvent){ event.preventDefault(); setSubmitting(true); try { await submit(event); } catch(error) { toast.error(error instanceof Error?error.message:"Não foi possível salvar."); } finally { setSubmitting(false); } } return <Dialog open={open} onOpenChange={(v)=>!v&&!submitting&&close()}><DialogContent className="admin-dialog"><form onSubmit={handleSubmit}><DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>{description}</DialogDescription></DialogHeader><div className="dialog-fields">{children}</div><DialogFooter><button type="button" className="admin-secondary" onClick={close} disabled={submitting}>Cancelar</button><button className="admin-primary" disabled={submitting}>{submitting?<><LoaderCircle className="spin" /> Salvando...</>:"Salvar"}</button></DialogFooter></form></DialogContent></Dialog>; }
+function FormDialog({ open, title, description, close, submit, children, submitLabel = "Salvar" }: { open:boolean; title:string; description:string; close:()=>void; submit:(e:React.FormEvent)=>void|Promise<void>; children:React.ReactNode; submitLabel?:string }) { const [submitting,setSubmitting]=useState(false); async function handleSubmit(event:React.FormEvent){ event.preventDefault(); setSubmitting(true); try { await submit(event); } catch(error) { toast.error(error instanceof Error?error.message:"Não foi possível salvar."); } finally { setSubmitting(false); } } return <Dialog open={open} onOpenChange={(v)=>!v&&!submitting&&close()}><DialogContent className="admin-dialog"><form onSubmit={handleSubmit}><DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>{description}</DialogDescription></DialogHeader><div className="dialog-fields">{children}</div><DialogFooter><button type="button" className="admin-secondary" onClick={close} disabled={submitting}>Cancelar</button><button className="admin-primary" disabled={submitting}>{submitting?<><LoaderCircle className="spin" /> Salvando...</>:submitLabel}</button></DialogFooter></form></DialogContent></Dialog>; }
 
 function ServiceForm({ value, close, save }: { value:Service|Partial<Service>|null; close:()=>void; save:(v:Record<string,unknown>)=>Promise<void> }) { const [form,setForm]=useState<Partial<Service>>({}); useEffect(()=>setForm(value||{}),[value]); return <FormDialog open={Boolean(value)} title={value?.id?"Editar serviço":"Novo serviço"} description="O preço será usado no site e recalculado no banco." close={close} submit={async(e)=>{e.preventDefault();await save({name:form.name,category:form.category,description:form.description||null,price:Number(form.price),unit:form.unit||null,active:form.active!==false,display_order:Number(form.display_order||0)});}}><div className="field-row"><div className="field"><label>Nome</label><input required value={form.name||""} onChange={(e)=>setForm({...form,name:e.target.value})}/></div><div className="field"><label>Categoria</label><input required value={form.category||""} onChange={(e)=>setForm({...form,category:e.target.value})}/></div></div><div className="field"><label>Descrição</label><textarea value={form.description||""} onChange={(e)=>setForm({...form,description:e.target.value})}/></div><div className="field-row"><div className="field"><label>Preço</label><input required type="number" min="0" step="0.01" value={form.price??""} onChange={(e)=>setForm({...form,price:Number(e.target.value)})}/></div><div className="field"><label>Unidade</label><input placeholder="Ex.: a partir de" value={form.unit||""} onChange={(e)=>setForm({...form,unit:e.target.value})}/></div></div><div className="field"><label>Ordem de exibição</label><input type="number" min="0" value={form.display_order||0} onChange={(e)=>setForm({...form,display_order:Number(e.target.value)})}/></div></FormDialog>; }
 
-function BulkAvailabilityForm({ open, close, save }: { open:boolean; close:()=>void; save:(v:{available_date:string;start_time:string;end_time:string;interval:number})=>Promise<void> }) { const [form,setForm]=useState({available_date:today,start_time:"08:00",end_time:"20:00",interval:60}); useEffect(()=>{if(open)setForm({available_date:today,start_time:"08:00",end_time:"20:00",interval:60});},[open]); const isFullDay=form.start_time==="08:00"&&form.end_time==="20:00"; return <FormDialog open={open} title="Liberar dia completo" description="Escolha a data e libere automaticamente a agenda das 08:00 às 20:00. Você pode usar horários de 30 em 30 minutos ou de 1 em 1 hora." close={close} submit={async(e)=>{e.preventDefault();await save(form);}}><div className="field"><label>Data</label><input required type="date" value={form.available_date} onChange={(e)=>setForm({...form,available_date:e.target.value})}/></div><div className="availability-preset"><div><strong>Dia inteiro</strong><small>08:00 às 20:00</small></div><button type="button" className="admin-secondary" onClick={()=>setForm({...form,start_time:"08:00",end_time:"20:00"})}>Usar 08h–20h</button></div><div className="field-row"><div className="field"><label>Início</label><input required type="time" value={form.start_time} onChange={(e)=>setForm({...form,start_time:e.target.value})}/></div><div className="field"><label>Fim</label><input required type="time" value={form.end_time} onChange={(e)=>setForm({...form,end_time:e.target.value})}/></div></div><div className="field"><label>Intervalo entre horários</label><select value={form.interval} onChange={(e)=>setForm({...form,interval:Number(e.target.value)})}><option value={30}>30 minutos</option><option value={60}>1 hora</option></select></div><p className="completion-note">{isFullDay ? (form.interval===60 ? "Serão liberados 12 horários: 08:00, 09:00, 10:00… até 19:00, com atendimento até 20:00." : "Serão liberados 24 horários, de 08:00 a 19:30, com atendimento até 20:00.") : "O período escolhido será dividido automaticamente pelo intervalo selecionado. Horários já existentes não serão duplicados."}</p></FormDialog>; }
+function BulkAvailabilityForm({ date, close, save }: { date:string|null; close:()=>void; save:(v:AvailabilityGeneration)=>Promise<void> }) {
+  const defaults = (day:string):AvailabilityGeneration => ({available_date:day,start_time:"08:00",end_time:"18:00",interval:30,pause:false,pause_start:"12:00",pause_end:"13:00",repeat:false,until:day,weekdays:[1,2,3,4,5]});
+  const [form,setForm]=useState(defaults(today));
+  const [custom,setCustom]=useState(false);
+  useEffect(()=>{if(date){setForm(defaults(date));setCustom(false);}},[date]);
+  let preview:ReturnType<typeof generateAvailability>=[]; let error="";
+  try { preview=generateAvailability(form); } catch(e) { error=e instanceof Error?e.message:"Revise os campos."; }
+  const times=[...new Set(preview.map(row=>row.start_time))];
+  const days=[...new Set(preview.map(row=>row.available_date))];
+  return <FormDialog open={Boolean(date)} title="Gerar horários de atendimento" description="Defina o período e confira os horários antes de adicionar." close={close} submitLabel="Gerar horários" submit={async(e)=>{e.preventDefault();await save(form);}}>
+    <div className="schedule-generator">
+    <label className="field">Data<input required type="date" value={form.available_date} onChange={e=>setForm({...form,available_date:e.target.value})}/></label>
+    <div className="field-row"><label className="field">Horário inicial<input required type="time" value={form.start_time} onChange={e=>setForm({...form,start_time:e.target.value})}/></label><label className="field">Horário final<input required type="time" value={form.end_time} onChange={e=>setForm({...form,end_time:e.target.value})}/></label></div>
+    <label className="field">Intervalo entre horários<select value={custom?"custom":form.interval} onChange={e=>{setCustom(e.target.value==="custom");if(e.target.value!=="custom")setForm({...form,interval:Number(e.target.value)});}}>{[15,20,30,45,60].map(n=><option key={n} value={n}>{n} minutos</option>)}<option value="custom">Personalizado</option></select></label>
+    {custom&&<label className="field">Intervalo em minutos<input required type="number" min="1" max="1440" step="1" value={form.interval} onChange={e=>setForm({...form,interval:Number(e.target.value)})}/></label>}
+    <label className="switch-field"><Switch checked={form.pause} onCheckedChange={pause=>setForm({...form,pause})}/><span>Adicionar pausa</span></label>
+    {form.pause&&<div className="field-row"><label className="field">Início da pausa<input required type="time" value={form.pause_start} onChange={e=>setForm({...form,pause_start:e.target.value})}/></label><label className="field">Fim da pausa<input required type="time" value={form.pause_end} onChange={e=>setForm({...form,pause_end:e.target.value})}/></label></div>}
+    <label className="field">Aplicar em<select value={form.repeat?"repeat":"day"} onChange={e=>setForm({...form,repeat:e.target.value==="repeat"})}><option value="day">Somente este dia</option><option value="repeat">Repetir disponibilidade</option></select></label>
+    {form.repeat&&<><label className="field">Repetir até<input required type="date" min={form.available_date} value={form.until} onChange={e=>setForm({...form,until:e.target.value})}/></label><fieldset className="schedule-weekdays"><legend>Dias da semana</legend>{["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].map((name,day)=><label key={day}><input type="checkbox" checked={form.weekdays.includes(day)} onChange={e=>setForm({...form,weekdays:e.target.checked?[...form.weekdays,day]:form.weekdays.filter(d=>d!==day)})}/>{name}</label>)}</fieldset></>}
+    <section className="schedule-preview" aria-live="polite"><strong>Prévia — {preview.length} horários{form.repeat?` em ${days.length} dias`:""}</strong>{error?<p role="alert">{error}</p>:<><div>{times.map(time=><span key={time}>{time}</span>)}</div>{form.repeat&&<p>{days.map(dateBR).join(" · ")}</p>}<p>O horário final encerra a grade. A pausa exclui os inícios dentro dela. Horários existentes, bloqueios e agendamentos serão preservados.</p></>}</section>
+    </div>
+  </FormDialog>;
+}
 
 function AvailabilityForm({ value, close, save }: { value:Availability|Partial<Availability>|null; close:()=>void; save:(v:Record<string,unknown>)=>Promise<void> }) { const [form,setForm]=useState<Partial<Availability>>({}); useEffect(()=>setForm(value||{}),[value]); return <FormDialog open={Boolean(value)} title={value?.id?"Editar horário":"Adicionar horário"} description="Bloqueie um horário quando ele não puder receber pedidos." close={close} submit={async(e)=>{e.preventDefault();await save({available_date:form.available_date,start_time:form.start_time,active:form.active!==false,blocked:Boolean(form.blocked),block_reason:form.block_reason||null});}}><div className="field-row"><div className="field"><label>Data</label><input required type="date" value={form.available_date||today} onChange={(e)=>setForm({...form,available_date:e.target.value})}/></div><div className="field"><label>Horário</label><input required type="time" value={String(form.start_time||"09:00").slice(0,5)} onChange={(e)=>setForm({...form,start_time:e.target.value})}/></div></div><label className="switch-field"><Switch checked={Boolean(form.blocked)} onCheckedChange={(v)=>setForm({...form,blocked:v})}/><span><strong>Bloquear horário</strong><small>Não será exibido na página pública.</small></span></label>{form.blocked&&<div className="field"><label>Motivo</label><input value={form.block_reason||""} onChange={(e)=>setForm({...form,block_reason:e.target.value})}/></div>}</FormDialog>; }
 

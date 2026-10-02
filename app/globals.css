@@ -213,3 +213,15 @@ footer { display: flex; align-items: center; justify-content: space-between; gap
 @media (max-width: 1050px) { .availability-slots { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 @media (max-width: 820px) { .availability-summary { grid-template-columns:repeat(2,minmax(0,1fr)); } .availability-toolbar { align-items:flex-start; flex-direction:column; } .availability-filter-buttons { justify-content:flex-start; } .availability-slots { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (max-width: 560px) { .availability-actions { width:100%; flex-direction:column; } .availability-actions button { width:100%; justify-content:center; } .availability-summary { grid-template-columns:1fr 1fr; } .availability-day > header { align-items:flex-start; flex-direction:column; } .availability-day-meta { width:100%; flex-wrap:wrap; } .availability-slots { grid-template-columns:1fr; } .availability-filter-buttons { width:100%; } .availability-filter-buttons input { flex:1; min-width:130px; } }
+
+.schedule-generator { display:grid; gap:16px; font-size:14px; }
+.schedule-generator .field { font-size:14px; gap:6px; }
+.schedule-generator input,.schedule-generator select { font-size:14px; min-height:42px; }
+.schedule-weekdays { border:0; padding:0; display:flex; flex-wrap:wrap; gap:10px; }
+.schedule-weekdays legend { margin-bottom:8px; }
+.schedule-weekdays label { display:flex; align-items:center; gap:5px; }
+.schedule-weekdays input { min-height:auto; accent-color:#ac833f; }
+.schedule-preview { padding:16px; border:1px solid #e4d8c2; background:#f5efe3; border-radius:12px; }
+.schedule-preview>div { display:flex; flex-wrap:wrap; gap:7px; margin-top:12px; max-height:160px; overflow:auto; }
+.schedule-preview span { background:#fffdfa; padding:6px 9px; border-radius:6px; }
+.schedule-preview p { margin-top:12px; font-size:14px; line-height:1.5; max-height:100px; overflow:auto; }
