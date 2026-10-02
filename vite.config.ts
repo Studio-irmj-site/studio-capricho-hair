@@ -14,6 +14,12 @@ const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 const localBindingConfig = {
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],
+  // Public client connection settings; authorization remains enforced by Supabase RLS.
+  // Keep these in the Worker configuration so automated deployments retain them.
+  vars: {
+    SUPABASE_URL: "https://gfqtosxfpvqhdwkhfcvi.supabase.co",
+    SUPABASE_ANON_KEY: "sb_publishable_mo-tMrFEG6IvAXDYpxC3lQ_sg6ztxDe",
+  },
   d1_databases: d1
     ? [
         {

@@ -87,3 +87,25 @@ test("visual settings reach the public page and PDFs include the monogram", asyn
   assert.match(page, /--studio-accent/);
   assert.match(pdf, /\(CH\) Tj/);
 });
+
+
+test("production deployment includes public Supabase connection and serves config", async () => {
+  const config = JSON.parse(await read("dist/server/wrangler.json"));
+  assert.equal(config.vars.SUPABASE_URL, "https://gfqtosxfpvqhdwkhfcvi.supabase.co");
+  assert.match(config.vars.SUPABASE_ANON_KEY, /^sb_publishable_/);
+  const previousUrl = process.env.SUPABASE_URL;
+  const previousKey = process.env.SUPABASE_ANON_KEY;
+  try {
+    // Cloudflare's nodejs_compat populates process.env from the Worker bindings.
+    process.env.SUPABASE_URL = config.vars.SUPABASE_URL;
+    process.env.SUPABASE_ANON_KEY = config.vars.SUPABASE_ANON_KEY;
+    const { default: worker } = await import("../dist/server/index.js");
+    const response = await worker.fetch(new Request("http://localhost/api/config"), {}, { waitUntil() {}, passThroughOnException() {} });
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.deepEqual(await response.json(), { url: config.vars.SUPABASE_URL, anonKey: config.vars.SUPABASE_ANON_KEY });
+  } finally {
+    if (previousUrl === undefined) delete process.env.SUPABASE_URL; else process.env.SUPABASE_URL = previousUrl;
+    if (previousKey === undefined) delete process.env.SUPABASE_ANON_KEY; else process.env.SUPABASE_ANON_KEY = previousKey;
+  }
+});
