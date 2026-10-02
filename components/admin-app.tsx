@@ -295,7 +295,75 @@ function Agenda({ rows, search, setSearch, onNew, onEdit, onStatus, onReceipt }:
 }
 
 function AvailabilityPanel({ rows, onNew, onBulk, onEdit, onDelete, onToggle }: { rows:Availability[]; onNew:()=>void; onBulk:()=>void; onEdit:(r:Availability)=>void; onDelete:(r:Availability)=>void; onToggle:(r:Availability,v:boolean)=>void }) {
-  return <><PageTitle eyebrow="Horários públicos" title="Disponibilidade" description="A cliente vê apenas horários ativos, desbloqueados e ainda não ocupados." action={<><button className="admin-secondary" onClick={onBulk}>Liberar dia completo</button><button className="admin-primary" onClick={onNew}><Plus /> Adicionar horário</button></>} />{rows.length ? <div className="availability-grid">{rows.map((row) => <article key={row.id} className={row.blocked ? "slot-card blocked" : "slot-card"}><div><CalendarClock /><span><strong>{dateBR(row.available_date)}</strong><small>{String(row.start_time).slice(0,5)} {row.blocked ? `• ${row.block_reason || "Bloqueado"}` : ""}</small></span></div><Switch checked={row.active} onCheckedChange={(v) => onToggle(row,v)} /><div><button onClick={() => onEdit(row)}><Pencil /> Editar</button><button className="danger" onClick={() => onDelete(row)}><Trash2 /></button></div></article>)}</div> : <Empty icon={CalendarClock} title="Sem horários cadastrados" text="Adicione as datas e horários que ficarão disponíveis para as clientes." />}</>;
+  const [filterDate, setFilterDate] = useState("");
+  const [period, setPeriod] = useState<"all"|"today"|"week">("all");
+  const now = new Date();
+  const todayKey = now.toISOString().slice(0,10);
+  const weekEnd = new Date(now);
+  weekEnd.setDate(weekEnd.getDate() + 7);
+  const weekEndKey = weekEnd.toISOString().slice(0,10);
+
+  const filtered = rows.filter((row) => {
+    if (filterDate && row.available_date !== filterDate) return false;
+    if (period === "today" && row.available_date !== todayKey) return false;
+    if (period === "week" && (row.available_date < todayKey || row.available_date > weekEndKey)) return false;
+    return true;
+  });
+
+  const grouped = filtered.reduce<Record<string, Availability[]>>((acc, row) => {
+    (acc[row.available_date] ||= []).push(row);
+    return acc;
+  }, {});
+  const days = Object.entries(grouped).sort(([a],[b]) => b.localeCompare(a));
+  const activeCount = filtered.filter((row) => row.active && !row.blocked).length;
+  const blockedCount = filtered.filter((row) => row.blocked).length;
+  const inactiveCount = filtered.filter((row) => !row.active && !row.blocked).length;
+
+  function dayLabel(value:string) {
+    const date = new Date(value + "T12:00:00");
+    return date.toLocaleDateString("pt-BR", { weekday:"long", day:"2-digit", month:"long" });
+  }
+
+  return <div className="availability-page">
+    <PageTitle eyebrow="Agenda pública" title="Disponibilidade" description="Controle exatamente quais dias e horários podem ser escolhidos pelas clientes." action={<div className="availability-actions"><button className="admin-secondary" onClick={onBulk}><CalendarClock /> Liberar período</button><button className="admin-primary" onClick={onNew}><Plus /> Novo horário</button></div>} />
+
+    <div className="availability-summary">
+      <article><span>Dias configurados</span><strong>{days.length}</strong><small>No filtro atual</small></article>
+      <article className="is-active"><span>Horários disponíveis</span><strong>{activeCount}</strong><small>Ativos e desbloqueados</small></article>
+      <article className="is-blocked"><span>Bloqueados</span><strong>{blockedCount}</strong><small>Não aparecem para clientes</small></article>
+      <article><span>Inativos</span><strong>{inactiveCount}</strong><small>Desativados manualmente</small></article>
+    </div>
+
+    <section className="availability-toolbar">
+      <div className="availability-filter-title"><CalendarClock /><div><strong>Visualização da agenda</strong><small>Filtre os horários para encontrar rapidamente um dia.</small></div></div>
+      <div className="availability-filter-buttons">
+        <button className={period==="all" && !filterDate ? "selected" : ""} onClick={()=>{setPeriod("all");setFilterDate("")}}>Todos</button>
+        <button className={period==="today" ? "selected" : ""} onClick={()=>{setPeriod("today");setFilterDate("")}}>Hoje</button>
+        <button className={period==="week" ? "selected" : ""} onClick={()=>{setPeriod("week");setFilterDate("")}}>Próximos 7 dias</button>
+        <input aria-label="Filtrar por data" type="date" value={filterDate} onChange={(e)=>{setFilterDate(e.target.value);setPeriod("all")}} />
+      </div>
+    </section>
+
+    {days.length ? <div className="availability-days">{days.map(([date, dayRows]) => {
+      const available = dayRows.filter((row)=>row.active && !row.blocked).length;
+      const blocked = dayRows.filter((row)=>row.blocked).length;
+      return <section className="availability-day" key={date}>
+        <header>
+          <div><span>{dayLabel(date)}</span><strong>{dateBR(date)}</strong></div>
+          <div className="availability-day-meta"><b>{available} disponíveis</b>{blocked > 0 && <small>{blocked} bloqueados</small>}<button className="day-edit" onClick={()=>onBulk()}>Liberar período</button></div>
+        </header>
+        <div className="availability-slots">{dayRows.sort((a,b)=>String(a.start_time).localeCompare(String(b.start_time))).map((row) => {
+          const status = row.blocked ? "blocked" : row.active ? "active" : "inactive";
+          return <article className={"availability-slot " + status} key={row.id}>
+            <div className="availability-slot-time"><Clock3 /><strong>{String(row.start_time).slice(0,5)}</strong></div>
+            <span>{row.blocked ? (row.block_reason || "Bloqueado") : row.active ? "Disponível para clientes" : "Inativo"}</span>
+            <Switch checked={row.active} onCheckedChange={(v)=>onToggle(row,v)} />
+            <div className="availability-slot-actions"><button onClick={()=>onEdit(row)} title="Editar"><Pencil /></button><button className="danger" onClick={()=>onDelete(row)} title="Excluir"><Trash2 /></button></div>
+          </article>;
+        })}</div>
+      </section>;
+    })}</div> : <Empty icon={CalendarClock} title="Nenhum horário encontrado" text={filterDate ? "Não existem horários cadastrados para a data escolhida." : "Adicione horários ou libere um período para começar a montar a agenda."} />}
+  </div>;
 }
 
 function Clients({ rows, search, setSearch, onNew, onEdit, onDelete, onHistory }: { rows:Client[]; search:string; setSearch:(v:string)=>void; onNew:()=>void; onEdit:(r:Client)=>void; onDelete:(r:Client)=>void; onHistory:(r:Client)=>void }) {
