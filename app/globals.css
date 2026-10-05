@@ -190,13 +190,19 @@ footer { display: flex; align-items: center; justify-content: space-between; gap
 .availability-filter-buttons input { width:145px; height:32px; padding:0 9px; border:1px solid #ded7ca; border-radius:8px; background:#fff; font-size:9px; }
 .availability-days { display:grid; gap:12px; }
 .availability-calendar-layout { display:grid; grid-template-columns:300px minmax(0,1fr); gap:18px; align-items:start; }
-.availability-month-panel { padding:14px; border:1px solid #dfd9cf; border-radius:15px; background:#fffdf9; }
+.availability-month-panel { min-width:0; padding:14px; border:1px solid #dfd9cf; border-radius:15px; background:#fffdf9; }
 .availability-month-heading { display:flex; align-items:center; gap:9px; margin-bottom:12px; }
 .availability-month-heading > svg { width:18px; color:#a07835; }
 .availability-month-heading div { display:grid; gap:4px; }
 .availability-month-heading strong { font-size:12px; }
 .availability-month-heading small { font-size:10px; color:#8b8378; }
 .availability-month-panel [data-slot="calendar"] { width:100%; padding:0; background:transparent; --cell-size:36px; }
+.availability-month-panel .rdp-months,.availability-month-panel .rdp-month { width:100%; min-width:0; }
+.availability-month-panel .rdp-month_grid { width:100%; table-layout:fixed; }
+.availability-month-panel .rdp-weekdays,.availability-month-panel .rdp-week { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); width:100%; }
+.availability-month-panel .rdp-weekday { min-width:0; padding:8px 0; background:transparent; text-align:center; font-size:9px; letter-spacing:0; }
+.availability-month-panel td.rdp-day { min-width:0; padding:0; border:0; font-size:11px; }
+.availability-month-panel .rdp-day button { width:100%; min-width:0; padding:0; }
 .availability-month-panel .rdp-day_button { min-height:36px; border-radius:9px; }
 .availability-month-panel .rdp-day[aria-selected="true"] button { background:#1c1c1b; color:#fff; }
 .availability-month-panel .rdp-day { position:relative; }
