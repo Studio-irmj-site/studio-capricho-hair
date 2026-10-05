@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AtSign, CalendarDays, Check, ChevronDown, Clock3, LoaderCircle, MapPin, Menu,
-  MessageCircle, Minus, Plus, Scissors, ShoppingBag, Sparkles, Trash2, X,
+  House, MessageCircle, Minus, Plus, Scissors, ShoppingBag, Sparkles, Trash2, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Monogram, StudioWordmark } from "@/components/monogram";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AvailableSlot, CartItem, DEFAULT_SETTINGS, Service, StudioSettings } from "@/lib/types";
 import { dateBR, money, normalizePhone, rpc, supabaseRequest } from "@/lib/supabase";
 
@@ -17,6 +18,7 @@ function whatsappUrl(phone: string, message: string) {
 }
 
 export function PublicSite() {
+  const [activeTab, setActiveTab] = useState("inicio");
   const [settings, setSettings] = useState<StudioSettings>(DEFAULT_SETTINGS);
   const [services, setServices] = useState<Service[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -30,6 +32,22 @@ export function PublicSite() {
   const [slots, setSlots] = useState<AvailableSlot[]>([]);
   const [form, setForm] = useState({ name: "", phone: "", date: "", time: "", notes: "", website: "" });
   const startedAt = useRef(0);
+
+  function navigateTab(value: string) {
+    setActiveTab(value);
+    setMenuOpen(false);
+    window.history.replaceState(null, "", `#${value}`);
+  }
+
+  useEffect(() => {
+    const readHash = () => {
+      const value = window.location.hash.slice(1);
+      setActiveTab(["inicio", "servicos", "contato"].includes(value) ? value : "inicio");
+    };
+    readHash();
+    window.addEventListener("hashchange", readHash);
+    return () => window.removeEventListener("hashchange", readHash);
+  }, []);
 
   useEffect(() => {
     startedAt.current = Date.now();
@@ -110,15 +128,16 @@ export function PublicSite() {
       "--studio-accent": settings.secondary_color || "#c6a25b",
     } as React.CSSProperties}>
       <Toaster richColors position="top-center" />
+      <Tabs className="client-portal-tabs" value={activeTab} onValueChange={navigateTab}>
       <header className="public-header">
-        <a className="brand" href="#inicio" aria-label="Ir para o início">
+        <a className="brand" href="#inicio" onClick={(e) => { e.preventDefault(); navigateTab("inicio"); }} aria-label="Ir para o início">
           <StudioWordmark />
           <span className="brand-description"><small>{settings.specialty}</small></span>
         </a>
         <nav className={menuOpen ? "public-nav public-nav-open" : "public-nav"} aria-label="Navegação principal">
-          <a href="#inicio" onClick={() => setMenuOpen(false)}>Início</a>
-          <a href="#servicos" onClick={() => setMenuOpen(false)}>Serviços</a>
-          <a href="#contato" onClick={() => setMenuOpen(false)}>Contato</a>
+          <a href="#inicio" onClick={(e) => { e.preventDefault(); navigateTab("inicio"); }}>Início</a>
+          <a href="#servicos" onClick={(e) => { e.preventDefault(); navigateTab("servicos"); }}>Serviços</a>
+          <a href="#contato" onClick={(e) => { e.preventDefault(); navigateTab("contato"); }}>Contato</a>
           <a className="nav-whatsapp" href={whatsappUrl(settings.whatsapp, `Olá, ${settings.name}! Gostaria de mais informações.`)} target="_blank" rel="noreferrer">
             <MessageCircle size={18} /> Falar no WhatsApp
           </a>
@@ -128,14 +147,24 @@ export function PublicSite() {
         </button>
       </header>
 
+      <div className="client-navigation">
+        <TabsList className="client-tab-list" aria-label="Painel da cliente">
+          <TabsTrigger value="inicio"><House /><span>Início</span></TabsTrigger>
+          <TabsTrigger value="servicos"><Scissors /><span>Serviços</span></TabsTrigger>
+          <TabsTrigger value="contato"><MapPin /><span>Contato</span></TabsTrigger>
+        </TabsList>
+        <button className="client-budget-shortcut" onClick={() => setCartOpen(true)} aria-label={`Ver orçamento com ${count} itens`}><ShoppingBag /><span>Orçamento</span>{count > 0 && <b>{count}</b>}</button>
+      </div>
+
       <main>
+        <TabsContent value="inicio" asChild>
         <section id="inicio" className="hero-section">
           <div className="hero-copy">
             <span className="eyebrow"><Sparkles size={15} /> Cuidado que revela sua melhor versão</span>
             <h1>Seu cabelo, sua essência, <em>nosso capricho.</em></h1>
             <p>{settings.slogan} Atendimento pensado em você, do primeiro cuidado ao resultado final.</p>
             <div className="hero-actions">
-              <a className="button button-gold" href="#servicos"><Scissors size={18} /> Ver serviços</a>
+              <button className="button button-gold" onClick={() => navigateTab("servicos")}><Scissors size={18} /> Ver serviços</button>
               <button className="button button-outline" onClick={() => setCartOpen(true)}><ShoppingBag size={18} /> Fazer orçamento</button>
             </div>
             <div className="hero-details"><span><MapPin /> {settings.city}</span><span><Clock3 /> {settings.opening_hours}</span></div>
@@ -145,7 +174,9 @@ export function PublicSite() {
             <div className="floating-note"><span>Atendimento personalizado</span><strong>Técnica + cuidado</strong></div>
           </div>
         </section>
+        </TabsContent>
 
+        <TabsContent value="servicos" asChild>
         <section id="servicos" className="services-section">
           <div className="section-heading">
             <div><span className="eyebrow">Menu de serviços</span><h2>Escolha seu próximo cuidado</h2></div>
@@ -177,7 +208,9 @@ export function PublicSite() {
             </div>
           )}
         </section>
+        </TabsContent>
 
+        <TabsContent value="contato" asChild>
         <section id="contato" className="contact-section">
           <div className="contact-copy"><span className="eyebrow">Venha nos conhecer</span><h2>Seu momento de cuidado começa aqui.</h2><p>Atendimento em Jundiaí com horário marcado e toda a atenção que você merece.</p></div>
           <div className="contact-grid">
@@ -187,7 +220,9 @@ export function PublicSite() {
             <a className="contact-card contact-address" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(settings.address)}`} target="_blank" rel="noreferrer"><MapPin /><span><small>Endereço</small><strong>{settings.address}</strong></span></a>
           </div>
         </section>
+        </TabsContent>
       </main>
+      </Tabs>
 
       <footer><div className="brand footer-brand"><StudioWordmark /><span className="brand-description"><small>{settings.slogan}</small></span></div><p>© {new Date().getFullYear()} {settings.name}. Todos os direitos reservados.</p><a href="/admin">Acesso administrativo</a></footer>
 
@@ -207,7 +242,7 @@ export function PublicSite() {
                 <strong>{money(Number(item.price) * item.quantity)}</strong>
                 <button className="remove-button" onClick={() => setCart((c) => c.filter((x) => x.id !== item.id))} aria-label={`Remover ${item.name}`}><Trash2 /></button>
               </div>
-            )) : <div className="empty-cart"><ShoppingBag /><h3>Seu orçamento está vazio</h3><p>Selecione um ou mais serviços para continuar.</p><button className="button button-gold" onClick={() => setCartOpen(false)}>Ver serviços</button></div>}
+            )) : <div className="empty-cart"><ShoppingBag /><h3>Seu orçamento está vazio</h3><p>Selecione um ou mais serviços para continuar.</p><button className="button button-gold" onClick={() => { setCartOpen(false); navigateTab("servicos"); }}>Ver serviços</button></div>}
 
             {cart.length > 0 && <>
               <div className="budget-total"><span>Valor estimado</span><strong>{money(total)}</strong></div>

@@ -78,6 +78,24 @@ button:disabled { cursor: not-allowed; opacity: .62; }
 .icon-button { border: 0; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; background: #eee8dc; }
 .mobile-menu { display: none; }
 
+.public-site .client-portal-tabs { display:block; }
+.client-navigation { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px clamp(20px,5vw,72px); border-bottom:1px solid #e8e0d2; background:#fffdf9; }
+.public-site .client-tab-list { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); width:min(100%,460px); height:auto; padding:5px; gap:4px; border:1px solid #e8e0d2; border-radius:16px; background:#f2ede4; }
+.client-tab-list [data-slot="tabs-trigger"] { min-width:0; min-height:46px; height:auto; padding:10px 16px; border-radius:11px; color:#7a7060; font-size:13px; }
+.client-tab-list [data-slot="tabs-trigger"][data-state="active"] { background:var(--studio-primary); color:#fff7e7; box-shadow:0 4px 12px #211b151a; }
+.client-tab-list [data-slot="tabs-trigger"] svg { width:17px; height:17px; }
+.client-budget-shortcut { display:flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:10px 16px; border:1px solid #e1d1b5; border-radius:12px; background:#faf4e8; color:#6b5024; font-size:12px; font-weight:700; }
+.client-budget-shortcut svg { width:18px; height:18px; }.client-budget-shortcut b { display:grid; place-items:center; min-width:22px; height:22px; border-radius:50%; background:var(--studio-primary); color:#fff; font-size:10px; }
+.client-portal-tabs [data-slot="tabs-content"] { outline-offset:-4px; }
+.public-site .client-portal-tabs .hero-section { min-height:540px; }
+@media (max-width:640px) {
+  .client-navigation { flex-wrap:wrap; gap:10px; padding:12px 16px; }
+  .public-site .client-tab-list { width:100%; }
+  .client-tab-list [data-slot="tabs-trigger"] { padding:10px 6px; font-size:12px; }
+  .client-budget-shortcut { width:100%; min-height:38px; padding:8px; }
+  .public-site .client-portal-tabs .hero-section { min-height:0; }
+}
+
 .hero-section { min-height: 690px; display: grid; grid-template-columns: minmax(0,1.08fr) minmax(360px,.92fr); align-items: center; gap: 60px; padding: 70px clamp(24px,7vw,112px) 84px; position: relative; background: radial-gradient(circle at 82% 42%, rgba(188,151,82,.13), transparent 27%), linear-gradient(140deg,#fbf8f2 0%,#f4eee4 100%); }
 .hero-section::before { content: "CAPRICHO"; position: absolute; right: -10px; bottom: -19px; color: rgba(56,47,35,.035); font-family: Georgia,serif; font-size: clamp(90px,15vw,220px); line-height: 1; letter-spacing: -.06em; pointer-events: none; }
 .hero-copy { position: relative; z-index: 2; max-width: 760px; }
