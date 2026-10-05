@@ -17,6 +17,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Calendar } from "@/components/ui/calendar";
+import { ptBR } from "date-fns/locale";
 import { Monogram } from "@/components/monogram";
 import { downloadFinancialReport, downloadReceipt } from "@/lib/pdf";
 import { Appointment, Client, DEFAULT_SETTINGS, Expense, Quote, Service, StudioSettings } from "@/lib/types";
@@ -294,6 +296,13 @@ function Agenda({ rows, search, setSearch, onNew, onEdit, onStatus, onReceipt }:
 
 function AvailabilityPanel({ rows, onNew, onBulk, onEdit, onDelete, onToggle }: { rows:Availability[]; onNew:()=>void; onBulk:(date?:string)=>void; onEdit:(r:Availability)=>void; onDelete:(r:Availability)=>void; onToggle:(r:Availability,v:boolean)=>void }) {
   const [filterDate, setFilterDate] = useState("");
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date());
+  const calendarDateKey = (date:Date) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+  function selectDate(value:string) {
+    setFilterDate(value);
+    setPeriod("all");
+    if (value) setCalendarMonth(new Date(`${value}T12:00:00`));
+  }
   const [period, setPeriod] = useState<"all"|"today"|"week">("all");
   const now = new Date();
   const todayKey = now.toISOString().slice(0,10);
@@ -336,12 +345,29 @@ function AvailabilityPanel({ rows, onNew, onBulk, onEdit, onDelete, onToggle }: 
       <div className="availability-filter-title"><CalendarClock /><div><strong>Visualização da agenda</strong><small>Filtre os horários para encontrar rapidamente um dia.</small></div></div>
       <div className="availability-filter-buttons">
         <button className={period==="all" && !filterDate ? "selected" : ""} onClick={()=>{setPeriod("all");setFilterDate("")}}>Todos</button>
-        <button className={period==="today" ? "selected" : ""} onClick={()=>{setPeriod("today");setFilterDate("")}}>Hoje</button>
+        <button className={period==="today" ? "selected" : ""} onClick={()=>{setPeriod("today");setFilterDate("");setCalendarMonth(new Date())}}>Hoje</button>
         <button className={period==="week" ? "selected" : ""} onClick={()=>{setPeriod("week");setFilterDate("")}}>Próximos 7 dias</button>
-        <input aria-label="Filtrar por data" type="date" value={filterDate} onChange={(e)=>{setFilterDate(e.target.value);setPeriod("all")}} />
+        <input aria-label="Filtrar por data" type="date" value={filterDate} onChange={(e)=>selectDate(e.target.value)} />
       </div>
     </section>
 
+    <div className="availability-calendar-layout">
+      <aside className="availability-month-panel" aria-label="Calendário de disponibilidade">
+        <div className="availability-month-heading"><CalendarClock /><div><strong>Escolha um dia</strong><small>Selecione a data para ver seus horários.</small></div></div>
+        <Calendar mode="single" locale={ptBR} weekStartsOn={0} month={calendarMonth} onMonthChange={setCalendarMonth}
+          selected={filterDate ? new Date(`${filterDate}T12:00:00`) : period==="today" ? new Date(`${todayKey}T12:00:00`) : undefined}
+          onSelect={(date)=>selectDate(date ? calendarDateKey(date) : "")}
+          modifiers={{
+            available: (date)=>rows.some(row=>row.available_date===calendarDateKey(date)&&row.active&&!row.blocked),
+            blocked: (date)=>rows.some(row=>row.available_date===calendarDateKey(date)&&row.blocked),
+            inactive: (date)=>rows.some(row=>row.available_date===calendarDateKey(date)&&!row.active&&!row.blocked),
+          }}
+          modifiersClassNames={{available:"availability-calendar-available",blocked:"availability-calendar-blocked",inactive:"availability-calendar-inactive"}}
+        />
+        <div className="availability-calendar-legend"><span><i className="available"/>Disponível</span><span><i className="blocked"/>Bloqueado</span><span><i className="inactive"/>Inativo</span></div>
+        {filterDate && <button className="availability-clear-date" onClick={()=>selectDate("")}>Limpar seleção e ver todos os dias</button>}
+      </aside>
+      <div className="availability-calendar-details">
     {days.length ? <div className="availability-days">{days.map(([date, dayRows]) => {
       const available = dayRows.filter((row)=>row.active && !row.blocked).length;
       const blocked = dayRows.filter((row)=>row.blocked).length;
@@ -360,7 +386,9 @@ function AvailabilityPanel({ rows, onNew, onBulk, onEdit, onDelete, onToggle }: 
           </article>;
         })}</div>
       </section>;
-    })}</div> : <Empty icon={CalendarClock} title="Nenhum horário encontrado" text={filterDate ? "Não existem horários cadastrados para a data escolhida." : "Adicione horários ou libere um período para começar a montar a agenda."} />}
+    })}</div> : <><Empty icon={CalendarClock} title="Nenhum horário encontrado" text={filterDate ? "Não existem horários cadastrados para a data escolhida." : "Adicione horários ou libere um período para começar a montar a agenda."} />{filterDate && <button className="admin-primary availability-add-selected" onClick={()=>onBulk(filterDate)}><Plus /> Adicionar horários neste dia</button>}</>}
+      </div>
+    </div>
   </div>;
 }
 
