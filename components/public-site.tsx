@@ -21,6 +21,8 @@ export function PublicSite() {
   const [activeTab, setActiveTab] = useState("inicio");
   const [settings, setSettings] = useState<StudioSettings>(DEFAULT_SETTINGS);
   const [services, setServices] = useState<Service[]>([]);
+  const [serviceCategory, setServiceCategory] = useState<string | null>(null);
+  const [servicePage, setServicePage] = useState(1);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [connected, setConnected] = useState(true);
@@ -74,6 +76,17 @@ export function PublicSite() {
 
   const total = useMemo(() => cart.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0), [cart]);
   const count = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const categoryOf = (service: Service) => service.category?.trim() || "Outros";
+  const serviceCategories = Array.from(new Set(services.map(categoryOf)));
+  const filteredServices = serviceCategory === null ? services : services.filter((service) => categoryOf(service) === serviceCategory);
+  const servicePageCount = Math.max(1, Math.ceil(filteredServices.length / 4));
+  const currentServicePage = Math.min(servicePage, servicePageCount);
+  const visibleServices = filteredServices.slice((currentServicePage - 1) * 4, currentServicePage * 4);
+
+  function changeServicePage(page: number) {
+    setServicePage(page);
+    document.getElementById("service-catalog")?.scrollIntoView({ block: "start" });
+  }
 
   const addService = (service: Service) => {
     setCart((current) => {
@@ -185,8 +198,14 @@ export function PublicSite() {
           {loading ? (
             <div className="loading-state"><LoaderCircle className="spin" /><p>Carregando serviços...</p></div>
           ) : services.length ? (
-            <div className="service-grid">
-              {services.map((service) => (
+            <div id="service-catalog" className="service-catalog">
+            <div className="service-category-tabs" role="group" aria-label="Filtrar serviços por categoria">
+              <button aria-pressed={serviceCategory === null} onClick={() => { setServiceCategory(null); setServicePage(1); }}>Todos <span>{services.length}</span></button>
+              {serviceCategories.map((category) => <button key={category} aria-pressed={serviceCategory === category} onClick={() => { setServiceCategory(category); setServicePage(1); }}>{category} <span>{services.filter((service) => categoryOf(service) === category).length}</span></button>)}
+            </div>
+            <p className="service-results" role="status">Mostrando {(currentServicePage - 1) * 4 + 1}–{Math.min(currentServicePage * 4, filteredServices.length)} de {filteredServices.length} serviços</p>
+            <div className="service-grid service-grid-compact">
+              {visibleServices.map((service) => (
                 <article className="service-card" key={service.id}>
                   <div className="service-icon"><Scissors /></div>
                   <span className="service-category">{service.category}</span>
@@ -198,6 +217,12 @@ export function PublicSite() {
                   </div>
                 </article>
               ))}
+            </div>
+            {servicePageCount > 1 && <nav className="service-pagination" aria-label="Páginas de serviços">
+              <button disabled={currentServicePage === 1} onClick={() => changeServicePage(currentServicePage - 1)}>Anterior</button>
+              <span>Página {currentServicePage} de {servicePageCount}</span>
+              <button disabled={currentServicePage === servicePageCount} onClick={() => changeServicePage(currentServicePage + 1)}>Próxima</button>
+            </nav>}
             </div>
           ) : (
             <div className="empty-public">
