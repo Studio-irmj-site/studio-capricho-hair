@@ -121,6 +121,10 @@ button:disabled { cursor: not-allowed; opacity: .62; }
 .hero-details { display: flex; flex-wrap: wrap; gap: 24px; margin-top: 35px; color: #686157; font-size: 13px; }
 .hero-details span { display: flex; align-items: center; gap: 8px; }.hero-details svg { width: 17px; color: #aa8139; }
 .hero-art { min-height: 470px; display: grid; place-items: center; position: relative; }
+.client-logo-frame { width:clamp(240px,31vw,410px); max-width:100%; aspect-ratio:1; border-radius:50%; background:#000; box-shadow:0 28px 60px rgba(43,35,24,.2); animation:float 6s ease-in-out infinite; }
+.client-brand-logo { display:block; width:100%; height:100%; object-fit:contain; border-radius:50%; }
+@media (max-width:1000px) { .client-logo-frame { width:min(70vw,370px); } }
+@media (prefers-reduced-motion:reduce) { .client-logo-frame { animation:none; } }
 .gold-orbit { width: min(31vw,410px); aspect-ratio: 1; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle,#27231e 0 51%,#181715 52% 59%,transparent 60%), conic-gradient(from 60deg,transparent,#c39d57,transparent 30%,#6d5730,transparent 65%,#d4b36f,transparent); box-shadow: 0 34px 70px rgba(43,35,24,.22); animation: float 6s ease-in-out infinite; }
 .gold-orbit::after { content: ""; position: absolute; inset: 7%; border: 1px solid rgba(255,226,164,.16); border-radius: 50%; }
 .floating-note { position: absolute; left: -7px; bottom: 42px; display: grid; gap: 6px; padding: 17px 21px; border: 1px solid rgba(173,135,69,.28); border-radius: 14px; background: rgba(255,253,249,.91); box-shadow: 0 18px 44px rgba(33,28,21,.13); backdrop-filter: blur(10px); }
@@ -296,4 +300,3 @@ footer { display: flex; align-items: center; justify-content: space-between; gap
 .schedule-preview>div { display:flex; flex-wrap:wrap; gap:7px; margin-top:12px; max-height:160px; overflow:auto; }
 .schedule-preview span { background:#fffdfa; padding:6px 9px; border-radius:6px; }
 .schedule-preview p { margin-top:12px; font-size:14px; line-height:1.5; max-height:100px; overflow:auto; }
-

@@ -8,7 +8,7 @@ import {
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Monogram, StudioWordmark, FloatingRibbonLogo } from "@/components/monogram";
+import { StudioWordmark } from "@/components/monogram";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AvailableSlot, CartItem, DEFAULT_SETTINGS, Service, StudioSettings } from "@/lib/types";
 import { dateBR, money, normalizePhone, rpc, supabaseRequest } from "@/lib/supabase";
@@ -170,8 +170,8 @@ export function PublicSite() {
             </div>
             <div className="hero-details"><span><MapPin /> {settings.city}</span><span><Clock3 /> {settings.opening_hours}</span></div>
           </div>
-          <div className="hero-art" aria-hidden="true">
-            <div className="gold-orbit"><FloatingRibbonLogo /></div>
+          <div className="hero-art">
+            <div className="client-logo-frame"><img src="/studio-capricho-client-logo.jpeg" alt="Logo Studio Capricho Hair em dourado sobre fundo preto" width={1254} height={1254} className="client-brand-logo" /></div>
             <div className="floating-note"><span>Atendimento personalizado</span><strong>Técnica + cuidado</strong></div>
           </div>
         </section>
