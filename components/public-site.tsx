@@ -42,7 +42,7 @@ export function PublicSite() {
   useEffect(() => {
     const readHash = () => {
       const value = window.location.hash.slice(1);
-      setActiveTab(["inicio", "servicos", "contato"].includes(value) ? value : "inicio");
+      setActiveTab(["inicio", "servicos", "agendamento", "contato"].includes(value) ? value : "inicio");
     };
     readHash();
     window.addEventListener("hashchange", readHash);
@@ -151,6 +151,7 @@ export function PublicSite() {
         <TabsList className="client-tab-list" aria-label="Painel da cliente">
           <TabsTrigger value="inicio"><House /><span>Início</span></TabsTrigger>
           <TabsTrigger value="servicos"><Scissors /><span>Serviços</span></TabsTrigger>
+          <TabsTrigger value="agendamento"><CalendarDays /><span>Agendamento</span></TabsTrigger>
           <TabsTrigger value="contato"><MapPin /><span>Contato</span></TabsTrigger>
         </TabsList>
         <button className="client-budget-shortcut" onClick={() => setCartOpen(true)} aria-label={`Ver orçamento com ${count} itens`}><ShoppingBag /><span>Orçamento</span>{count > 0 && <b>{count}</b>}</button>
@@ -207,6 +208,26 @@ export function PublicSite() {
               <a className="button button-gold" href={whatsappUrl(settings.whatsapp, `Olá, ${settings.name}! Gostaria de consultar os serviços.`)} target="_blank" rel="noreferrer"><MessageCircle size={18} /> Consultar no WhatsApp</a>
             </div>
           )}
+        </section>
+        </TabsContent>
+
+        <TabsContent value="agendamento" asChild>
+        <section className="booking-section">
+          <div className="booking-card">
+            <div className="booking-icon"><CalendarDays /></div>
+            <span className="eyebrow">Agendamento</span>
+            <h2>Escolha seus serviços e solicite seu horário.</h2>
+            <p>Monte seu orçamento, escolha uma data e um horário disponível e envie a solicitação diretamente para o Studio Capricho Hair pelo WhatsApp.</p>
+            <div className="booking-actions">
+              <button className="button button-gold" onClick={() => setCartOpen(true)}><ShoppingBag size={18} /> Montar orçamento</button>
+              <button className="button button-outline" onClick={() => navigateTab("servicos")}><Scissors size={18} /> Ver serviços</button>
+            </div>
+            <div className="booking-features">
+              <span><Check /> Serviços selecionados</span>
+              <span><Check /> Data e horário disponíveis</span>
+              <span><Check /> Confirmação pelo WhatsApp</span>
+            </div>
+          </div>
         </section>
         </TabsContent>
 
