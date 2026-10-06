@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { StudioWordmark } from "@/components/monogram";
+import { GoogleReviews } from "@/components/google-reviews";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AvailableSlot, CartItem, DEFAULT_SETTINGS, Service, StudioSettings } from "@/lib/types";
 import { dateBR, money, normalizePhone, rpc, supabaseRequest } from "@/lib/supabase";
@@ -172,6 +173,7 @@ export function PublicSite() {
 
       <main>
         <TabsContent value="inicio" asChild>
+        <div className="client-home-panel">
         <section id="inicio" className="hero-section">
           <div className="hero-copy">
             <span className="eyebrow"><Sparkles size={15} /> Cuidado que revela sua melhor versão</span>
@@ -187,6 +189,8 @@ export function PublicSite() {
             <div className="client-logo-frame"><img src="/studio-capricho-client-logo.jpeg" alt="Logo Studio Capricho Hair em dourado sobre fundo preto" width={1254} height={1254} className="client-brand-logo" /></div>
           </div>
         </section>
+        <GoogleReviews />
+        </div>
         </TabsContent>
 
         <TabsContent value="servicos" asChild>
