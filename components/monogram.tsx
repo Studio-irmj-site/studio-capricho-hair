@@ -9,6 +9,20 @@ export function Monogram({ compact = false }: { compact?: boolean }) {
   );
 }
 
+export function FloatingRibbonLogo() {
+  return (
+    <div className="floating-ribbon-logo" aria-label="Studio Capricho Hair">
+      <span className="ribbon-knot" aria-hidden="true" />
+      <span className="ribbon-loop ribbon-loop-left" aria-hidden="true" />
+      <span className="ribbon-loop ribbon-loop-right" aria-hidden="true" />
+      <span className="ribbon-tail ribbon-tail-left" aria-hidden="true" />
+      <span className="ribbon-tail ribbon-tail-right" aria-hidden="true" />
+      <span className="ribbon-name">Studio</span>
+      <strong>Capricho Hair</strong>
+    </div>
+  );
+}
+
 export function StudioWordmark() {
   return (
     <div className="studio-wordmark" aria-label="Studio Capricho Hair">
