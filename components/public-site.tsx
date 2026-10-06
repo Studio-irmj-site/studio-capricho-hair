@@ -172,7 +172,6 @@ export function PublicSite() {
           </div>
           <div className="hero-art">
             <div className="client-logo-frame"><img src="/studio-capricho-client-logo.jpeg" alt="Logo Studio Capricho Hair em dourado sobre fundo preto" width={1254} height={1254} className="client-brand-logo" /></div>
-            <div className="floating-note"><span>Atendimento personalizado</span><strong>Técnica + cuidado</strong></div>
           </div>
         </section>
         </TabsContent>
