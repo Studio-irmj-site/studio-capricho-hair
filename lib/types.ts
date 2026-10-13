@@ -27,6 +27,17 @@ export type Service = {
 
 export type CartItem = Service & { quantity: number };
 
+export type Promotion = {
+  id: string;
+  service_id: string;
+  title: string;
+  description: string | null;
+  start_date: string;
+  end_date: string;
+  promotional_price: number;
+  active: boolean;
+};
+
 export type AvailableSlot = {
   availability_id: string;
   date: string;

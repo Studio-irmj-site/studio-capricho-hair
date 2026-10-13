@@ -20,11 +20,12 @@ import { Switch } from "@/components/ui/switch";
 import { Calendar } from "@/components/ui/calendar";
 import { ptBR } from "date-fns/locale";
 import { AdminLogo } from "@/components/admin-logo";
+import { PromotionsPanel } from "@/components/promotions-panel";
 import { downloadFinancialReport, downloadReceipt } from "@/lib/pdf";
-import { Appointment, Client, DEFAULT_SETTINGS, Expense, Quote, Service, StudioSettings } from "@/lib/types";
+import { Appointment, Client, DEFAULT_SETTINGS, Expense, Promotion, Quote, Service, StudioSettings } from "@/lib/types";
 import { dateBR, getStoredSession, money, normalizePhone, rpc, signIn, signOut, supabaseRequest } from "@/lib/supabase";
 
-type Tab = "dashboard" | "services" | "quotes" | "agenda" | "availability" | "clients" | "attendances" | "finance" | "settings";
+type Tab = "dashboard" | "services" | "promotions" | "quotes" | "agenda" | "availability" | "clients" | "attendances" | "finance" | "settings";
 type Availability = { id: string; available_date: string; start_time: string; active: boolean; blocked: boolean; block_reason?: string | null };
 type Attendance = { id: string; appointment_id: string; amount: number; payment_method: string; receipt_number: string; completed_at: string; appointments: Appointment };
 type DashboardData = {
@@ -39,6 +40,7 @@ type DashboardData = {
 const NAV: Array<{ id: Tab; label: string; icon: React.ElementType }> = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "services", label: "Serviços", icon: Scissors },
+  { id: "promotions", label: "Promoções", icon: CalendarClock },
   { id: "quotes", label: "Orçamentos", icon: FileText },
   { id: "agenda", label: "Agenda", icon: CalendarCheck },
   { id: "availability", label: "Disponibilidade", icon: CalendarClock },
@@ -68,6 +70,7 @@ export function AdminApp() {
   const [clients, setClients] = useState<Client[]>([]);
   const [attendances, setAttendances] = useState<Attendance[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [studio, setStudio] = useState<StudioSettings>(DEFAULT_SETTINGS);
   const [search, setSearch] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ table: string; id: string; label: string } | null>(null);
@@ -90,6 +93,13 @@ export function AdminApp() {
     try {
       if (activeTab === "dashboard") setDashboard((await rpc<DashboardData>("admin_dashboard", {}, true)) || emptyDashboard);
       if (activeTab === "services") setServices(await supabaseRequest<Service[]>("services?select=*&order=display_order.asc,name.asc", {}, true));
+      if (activeTab === "promotions") {
+        const [offers, catalog] = await Promise.all([
+          supabaseRequest<Promotion[]>("dated_promotions?select=*&order=start_date.desc", {}, true),
+          supabaseRequest<Service[]>("services?select=*&order=display_order.asc,name.asc", {}, true),
+        ]);
+        setPromotions(offers); setServices(catalog);
+      }
       if (activeTab === "quotes") setQuotes(await supabaseRequest<Quote[]>("quotes?select=*,quote_items(*)&order=created_at.desc", {}, true));
       if (activeTab === "agenda") setAppointments(await supabaseRequest<Appointment[]>("appointments?select=*&order=scheduled_date.desc,scheduled_time.asc", {}, true));
       if (activeTab === "availability") setAvailability(await supabaseRequest<Availability[]>("availability?select=*&order=available_date.desc,start_time.asc", {}, true));
@@ -205,6 +215,7 @@ export function AdminApp() {
           {loading && <div className="content-loading"><LoaderCircle className="spin" /> Atualizando dados...</div>}
           {tab === "dashboard" && <Dashboard data={dashboard} navigate={navigate} />}
           {tab === "services" && <Services rows={services} search={search} setSearch={setSearch} onNew={() => setServiceDialog({ active: true, display_order: 0 })} onEdit={setServiceDialog} onDelete={(row) => setDeleteTarget({ table: "services", id: row.id, label: "Serviço" })} onToggle={toggleService} />}
+          {tab === "promotions" && <PromotionsPanel rows={promotions} services={services} save={async ({ id, ...value }) => { await saveRecord("dated_promotions", value, id); }} remove={(row) => setDeleteTarget({ table: "dated_promotions", id: row.id, label: "Promoção" })} />}
           {tab === "quotes" && <Quotes rows={quotes} search={search} setSearch={setSearch} onAction={updateQuote} />}
           {tab === "agenda" && <Agenda rows={appointments} search={search} setSearch={setSearch} onNew={() => setAppointmentDialog({ status: "Agendado", scheduled_date: today, scheduled_time: "09:00", total: 0 })} onEdit={setAppointmentDialog} onStatus={changeAppointmentStatus} onReceipt={(row) => downloadReceipt(row, studio)} />}
           {tab === "availability" && <AvailabilityPanel rows={availability} onNew={() => setBulkAvailabilityDialog(today)} onBulk={(date) => setBulkAvailabilityDialog(date || today)} onEdit={setAvailabilityDialog} onDelete={(row) => setDeleteTarget({ table: "availability", id: row.id, label: "Horário" })} onToggle={(row, active) => saveRecord("availability", { active }, row.id).catch((e) => toast.error(e.message))} />}
