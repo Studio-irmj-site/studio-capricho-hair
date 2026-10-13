@@ -4,7 +4,7 @@ import test from "node:test";
 import ts from "typescript";
 const source = await readFile(new URL("../lib/promotions.ts", import.meta.url), "utf8");
 const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText;
-const { promotionalPrice, studioToday, validatePromotion } = await import(`data:text/javascript;base64,${Buffer.from(output).toString("base64")}`);
+const { promotionalPrice, promotionSpotlight, studioToday, validatePromotion } = await import(`data:text/javascript;base64,${Buffer.from(output).toString("base64")}`);
 const service = { id: "one", price: 100, active: true };
 const offer = { id: "offer", service_id: "one", title: "Escova especial", description: null, start_date: "2026-10-20", end_date: "2026-10-21", promotional_price: 70, active: true };
 test("discount follows the appointment day, includes both boundaries and chooses the cheapest offer", () => {
@@ -21,6 +21,20 @@ test("discount follows the appointment day, includes both boundaries and chooses
 test("date rolls over in Sao Paulo, not at midnight UTC", () => {
   assert.equal(studioToday(new Date("2026-10-21T02:59:00Z")), "2026-10-20");
   assert.equal(studioToday(new Date("2026-10-21T03:00:00Z")), "2026-10-21");
+});
+test("home spotlight prioritizes a current offer, then this week, then the next date", () => {
+  const todayOffer = { ...offer, start_date: "2026-10-20", end_date: "2026-10-20" };
+  const weeklyOffer = { ...offer, id: "weekly", start_date: "2026-10-22", end_date: "2026-10-25" };
+  const laterOffer = { ...offer, id: "later", start_date: "2026-11-02", end_date: "2026-11-02" };
+  assert.equal(promotionSpotlight([laterOffer, weeklyOffer, todayOffer], "2026-10-20").label, "Promoção de hoje");
+  assert.equal(promotionSpotlight([{ ...offer, start_date: "2026-10-19" }, todayOffer], "2026-10-20").label, "Promoção de hoje");
+  assert.equal(promotionSpotlight([laterOffer, weeklyOffer], "2026-10-20").label, "Promoção desta semana");
+  assert.equal(promotionSpotlight([laterOffer, weeklyOffer], "2026-10-26").offer.id, "later");
+  assert.equal(promotionSpotlight([laterOffer], "2026-10-26").label, "Próxima promoção");
+  assert.equal(promotionSpotlight([offer], "2026-10-20").label, "Promoção da semana");
+  assert.equal(promotionSpotlight([{ ...todayOffer, active: false }], "2026-10-20"), null);
+  assert.equal(promotionSpotlight([todayOffer], "2026-10-21"), null);
+  assert.equal(promotionSpotlight([weeklyOffer], "2026-10-25").label, "Promoção da semana");
 });
 test("invalid date, inactive service and non-discount prices cannot be saved", () => {
   assert.doesNotThrow(() => validatePromotion(offer, [service]));
