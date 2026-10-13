@@ -9,6 +9,21 @@ export function promotionalPrice(service: Pick<Service, "id" | "price">, date: s
     ? Math.min(price, Number(promotion.promotional_price)) : price, Number(service.price));
 }
 
+export function promotionSpotlight(promotions: Promotion[], today = studioToday()) {
+  const weekEnd = new Date(`${today}T12:00:00Z`);
+  weekEnd.setUTCDate(weekEnd.getUTCDate() + (7 - weekEnd.getUTCDay()) % 7);
+  const sunday = weekEnd.toISOString().slice(0, 10);
+  const rank = (offer: Promotion) => offer.start_date === today && offer.end_date === today ? 0 : offer.start_date <= today ? 1 : offer.start_date <= sunday ? 2 : 3;
+  const offer = promotions.filter((row) => row.active && row.end_date >= today)
+    .sort((a, b) => rank(a) - rank(b) || a.start_date.localeCompare(b.start_date) || Number(a.promotional_price) - Number(b.promotional_price) || a.id.localeCompare(b.id))[0];
+  if (!offer) return null;
+  const duration = (Date.parse(offer.end_date) - Date.parse(offer.start_date)) / 86400000;
+  const label = offer.start_date <= today
+    ? duration === 0 ? "Promoção de hoje" : duration < 7 ? "Promoção da semana" : "Promoção em vigor"
+    : offer.start_date <= sunday ? "Promoção desta semana" : "Próxima promoção";
+  return { offer, label };
+}
+
 export function validatePromotion(value: Omit<Promotion, "id">, services: Service[]) {
   const service = services.find((row) => row.id === value.service_id && row.active);
   if (!service) throw new Error("Selecione um serviço ativo.");

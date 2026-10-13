@@ -190,6 +190,12 @@ export function PublicSite() {
       <main>
         <TabsContent value="inicio" asChild>
         <div className="client-home-panel">
+        <PublicPromotions promotions={promotions} services={services} select={(service, offer) => {
+          const date = availableDates.find((day) => day >= offer.start_date && day <= offer.end_date) || "";
+          setSlots([]); setForm((current) => ({ ...current, date, time: "" }));
+          addService(service);
+          if (!date) toast.info("Ainda não há horários disponíveis para esta promoção. Consulte o Studio pelo WhatsApp.");
+        }} />
         <section id="inicio" className="hero-section">
           <div className="hero-copy">
             <span className="eyebrow"><Sparkles size={15} /> Cuidado que revela sua melhor versão</span>
@@ -205,12 +211,6 @@ export function PublicSite() {
             <div className="client-logo-frame"><img src="/studio-capricho-client-logo.jpeg" alt="Logo Studio Capricho Hair em dourado sobre fundo preto" width={1254} height={1254} className="client-brand-logo" /></div>
           </div>
         </section>
-        <PublicPromotions promotions={promotions} services={services} select={(service, offer) => {
-          const date = availableDates.find((day) => day >= offer.start_date && day <= offer.end_date) || "";
-          setSlots([]); setForm((current) => ({ ...current, date, time: "" }));
-          addService(service);
-          if (!date) toast.info("Ainda não há horários disponíveis para esta promoção. Consulte o Studio pelo WhatsApp.");
-        }} />
         <GoogleReviews />
         </div>
         </TabsContent>
