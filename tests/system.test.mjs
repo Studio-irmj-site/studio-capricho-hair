@@ -44,7 +44,7 @@ test("public requests use official service prices and abuse controls", async () 
   assert.match(sql, /v_service\.price \* v_quantity/i);
   assert.match(sql, /created_at > now\(\) - interval '10 minutes'/i);
   assert.match(sql, /request_hash/i);
-  assert.match(page, /submit_public_request/);
+  assert.match(page, /submit_promotional_request/);
   assert.match(page, /public_available_slots/);
   assert.doesNotMatch(page, /price:\s*[0-9]/);
 });

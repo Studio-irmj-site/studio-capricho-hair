@@ -13,5 +13,5 @@ test("client sections are separate accessible tabs while the budget stays shared
   assert.match(source, /window.addEventListener\("hashchange", readHash\)/);
   assert.match(source, /setCartOpen\(false\); navigateTab\("servicos"\)/);
   assert.match(source, /useState<CartItem\[\]>\(\[\]\)/);
-  assert.match(source, /submit_public_request/);
+  assert.match(source, /submit_promotional_request/);
 });

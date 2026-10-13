@@ -10,8 +10,10 @@ import { Toaster } from "@/components/ui/sonner";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { StudioWordmark } from "@/components/monogram";
 import { GoogleReviews } from "@/components/google-reviews";
+import { PublicPromotions } from "@/components/public-promotions";
+import { promotionalPrice } from "@/lib/promotions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AvailableSlot, CartItem, DEFAULT_SETTINGS, Service, StudioSettings } from "@/lib/types";
+import { AvailableSlot, CartItem, DEFAULT_SETTINGS, Promotion, Service, StudioSettings } from "@/lib/types";
 import { dateBR, money, normalizePhone, rpc, supabaseRequest } from "@/lib/supabase";
 
 function whatsappUrl(phone: string, message: string) {
@@ -22,6 +24,7 @@ export function PublicSite() {
   const [activeTab, setActiveTab] = useState("inicio");
   const [settings, setSettings] = useState<StudioSettings>(DEFAULT_SETTINGS);
   const [services, setServices] = useState<Service[]>([]);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [serviceCategory, setServiceCategory] = useState<string | null>(null);
   const [servicePage, setServicePage] = useState(1);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -69,13 +72,26 @@ export function PublicSite() {
   }, []);
 
   useEffect(() => {
+    let current = true;
+    const refresh = () => supabaseRequest<Promotion[]>("dated_promotions?select=*&active=eq.true&order=start_date.asc")
+      .then((rows) => { if (current) setPromotions(rows); })
+      .catch(() => { if (current) setPromotions([]); });
+    void refresh();
+    const timer = window.setInterval(refresh, 30000);
+    window.addEventListener("focus", refresh);
+    return () => { current = false; window.clearInterval(timer); window.removeEventListener("focus", refresh); };
+  }, []);
+
+  useEffect(() => {
     if (!form.date) return;
+    let current = true;
     rpc<AvailableSlot[]>("public_available_slots", { p_date: form.date })
-      .then(setSlots)
-      .catch(() => setSlots([]));
+      .then((rows) => { if (current) setSlots(rows); })
+      .catch(() => { if (current) setSlots([]); });
+    return () => { current = false; };
   }, [form.date]);
 
-  const total = useMemo(() => cart.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0), [cart]);
+  const total = useMemo(() => cart.reduce((sum, item) => sum + promotionalPrice(item, form.date, promotions) * item.quantity, 0), [cart, form.date, promotions]);
   const count = cart.reduce((sum, item) => sum + item.quantity, 0);
   const categoryOf = (service: Service) => service.category?.trim() || "Outros";
   const serviceCategories = Array.from(new Set(services.map(categoryOf)));
@@ -112,7 +128,7 @@ export function PublicSite() {
     if (Date.now() - startedAt.current < 2500 || form.website) return toast.error("Aguarde um instante e tente novamente.");
     setSending(true);
     try {
-      const result = await rpc<{ quote_id: string; protocol: string; total: number }>("submit_public_request", {
+      const result = await rpc<{ quote_id: string; protocol: string; total: number }>("submit_promotional_request", {
         p_client_name: form.name,
         p_client_phone: form.phone,
         p_requested_date: form.date,
@@ -189,6 +205,12 @@ export function PublicSite() {
             <div className="client-logo-frame"><img src="/studio-capricho-client-logo.jpeg" alt="Logo Studio Capricho Hair em dourado sobre fundo preto" width={1254} height={1254} className="client-brand-logo" /></div>
           </div>
         </section>
+        <PublicPromotions promotions={promotions} services={services} select={(service, offer) => {
+          const date = availableDates.find((day) => day >= offer.start_date && day <= offer.end_date) || "";
+          setSlots([]); setForm((current) => ({ ...current, date, time: "" }));
+          addService(service);
+          if (!date) toast.info("Ainda não há horários disponíveis para esta promoção. Consulte o Studio pelo WhatsApp.");
+        }} />
         <GoogleReviews />
         </div>
         </TabsContent>
@@ -286,15 +308,16 @@ export function PublicSite() {
           <div className="budget-body">
             {cart.length ? cart.map((item) => (
               <div className="cart-item" key={item.id}>
-                <div><strong>{item.name}</strong><small>{money(item.price)} {item.unit ? `/ ${item.unit}` : ""}</small></div>
+                <div><strong>{item.name}</strong><small>{money(promotionalPrice(item, form.date, promotions))} {item.unit ? `/ ${item.unit}` : ""}{promotionalPrice(item, form.date, promotions) < Number(item.price) && " • promoção aplicada"}</small></div>
                 <div className="quantity-control"><button onClick={() => changeQuantity(item.id, -1)} aria-label="Diminuir quantidade"><Minus /></button><span>{item.quantity}</span><button onClick={() => changeQuantity(item.id, 1)} aria-label="Aumentar quantidade"><Plus /></button></div>
-                <strong>{money(Number(item.price) * item.quantity)}</strong>
+                <strong>{money(promotionalPrice(item, form.date, promotions) * item.quantity)}</strong>
                 <button className="remove-button" onClick={() => setCart((c) => c.filter((x) => x.id !== item.id))} aria-label={`Remover ${item.name}`}><Trash2 /></button>
               </div>
             )) : <div className="empty-cart"><ShoppingBag /><h3>Seu orçamento está vazio</h3><p>Selecione um ou mais serviços para continuar.</p><button className="button button-gold" onClick={() => { setCartOpen(false); navigateTab("servicos"); }}>Ver serviços</button></div>}
 
             {cart.length > 0 && <>
               <div className="budget-total"><span>Valor estimado</span><strong>{money(total)}</strong></div>
+              {promotions.length > 0 && <p className="form-note">Escolha a data do atendimento para aplicar as promoções válidas naquele dia. Se houver mais de uma oferta para o mesmo serviço, vale o menor preço.</p>}
               <form className="budget-form" onSubmit={submitRequest}>
                 <div className="field"><label htmlFor="client-name">Seu nome</label><input id="client-name" required maxLength={120} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nome completo" /></div>
                 <div className="field"><label htmlFor="client-phone">WhatsApp</label><input id="client-phone" required inputMode="tel" minLength={10} maxLength={20} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="(11) 99999-9999" /></div>

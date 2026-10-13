@@ -8,7 +8,7 @@ test("client hero uses the supplied logo without replacing tabs or budget", asyn
   assert.doesNotMatch(page, /<FloatingRibbonLogo|<Monogram/);
   assert.doesNotMatch(page, /className="floating-note"/);
   assert.match(page, /TabsContent value="inicio"/);
-  assert.match(page, /submit_public_request/);
+  assert.match(page, /submit_promotional_request/);
   const logo = await readFile(new URL("../public/studio-capricho-client-logo.jpeg", import.meta.url));
   assert.equal(logo[0], 0xff);
   assert.equal(logo[1], 0xd8);
