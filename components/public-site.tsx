@@ -36,6 +36,7 @@ export function PublicSite() {
   const [success, setSuccess] = useState<{ protocol: string; total: number } | null>(null);
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [slots, setSlots] = useState<AvailableSlot[]>([]);
+  const [availabilityRevision, setAvailabilityRevision] = useState(0);
   const [form, setForm] = useState({ name: "", phone: "", date: "", time: "", notes: "", website: "" });
   const startedAt = useRef(0);
 
@@ -60,12 +61,10 @@ export function PublicSite() {
     Promise.all([
       supabaseRequest<StudioSettings[]>("studio_settings?select=*&limit=1"),
       supabaseRequest<Service[]>("services?select=*&active=eq.true&order=display_order.asc,name.asc"),
-      rpc<string[]>("public_available_dates", {}),
     ])
-      .then(([studio, serviceRows, dates]) => {
+      .then(([studio, serviceRows]) => {
         if (studio[0]) setSettings({ ...DEFAULT_SETTINGS, ...studio[0] });
         setServices(serviceRows);
-        setAvailableDates(dates || []);
       })
       .catch(() => setConnected(false))
       .finally(() => setLoading(false));
@@ -83,13 +82,39 @@ export function PublicSite() {
   }, []);
 
   useEffect(() => {
-    if (!form.date) return;
     let current = true;
-    rpc<AvailableSlot[]>("public_available_slots", { p_date: form.date })
-      .then((rows) => { if (current) setSlots(rows); })
-      .catch(() => { if (current) setSlots([]); });
-    return () => { current = false; };
-  }, [form.date]);
+    let revision = 0;
+    const refresh = async () => {
+      const request = ++revision;
+      try {
+        const [dates, rows] = await Promise.all([
+          rpc<string[]>("public_available_dates", {}),
+          form.date ? rpc<AvailableSlot[]>("public_available_slots", { p_date: form.date }) : Promise.resolve([]),
+        ]);
+        if (!current || request !== revision) return;
+        setAvailableDates(dates || []);
+        setSlots(rows);
+        setForm((value) => value.date === form.date && value.time && !rows.some((slot) => slot.start_time === value.time)
+          ? { ...value, time: "" } : value);
+      } catch {
+        if (current && request === revision) {
+          setSlots([]);
+          setForm((value) => value.date === form.date && value.time ? { ...value, time: "" } : value);
+        }
+      }
+    };
+    const visibleRefresh = () => { if (document.visibilityState !== "hidden") void refresh(); };
+    void refresh();
+    const timer = window.setInterval(visibleRefresh, 10000);
+    window.addEventListener("focus", visibleRefresh);
+    document.addEventListener("visibilitychange", visibleRefresh);
+    return () => {
+      current = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", visibleRefresh);
+      document.removeEventListener("visibilitychange", visibleRefresh);
+    };
+  }, [form.date, cartOpen, availabilityRevision]);
 
   const total = useMemo(() => cart.reduce((sum, item) => sum + promotionalPrice(item, form.date, promotions) * item.quantity, 0), [cart, form.date, promotions]);
   const count = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -123,6 +148,7 @@ export function PublicSite() {
 
   async function submitRequest(event: React.FormEvent) {
     event.preventDefault();
+    if (sending) return;
     if (!cart.length) return toast.error("Selecione pelo menos um serviço.");
     if (!form.date || !form.time) return toast.error("Escolha uma data e um horário disponíveis.");
     if (Date.now() - startedAt.current < 2500 || form.website) return toast.error("Aguarde um instante e tente novamente.");
@@ -142,11 +168,14 @@ export function PublicSite() {
       const message = `Olá, ${settings.name}! Enviei uma solicitação pelo site.\n\nProtocolo: ${result.protocol}\nCliente: ${form.name}\nServiços:\n${summary}\nData: ${dateBR(form.date)} às ${form.time.slice(0, 5)}\nTotal estimado: ${money(result.total)}\n\nAguardo a confirmação do horário.`;
       setCart([]);
       setCartOpen(false);
+      setSlots((current) => current.filter((slot) => slot.start_time !== form.time));
+      setAvailabilityRevision((value) => value + 1);
       window.open(whatsappUrl(settings.whatsapp, message), "_blank", "noopener,noreferrer");
       toast.success("Solicitação registrada com sucesso.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível enviar sua solicitação.");
       if (/horário/i.test(String(error))) setForm((old) => ({ ...old, time: "" }));
+      setAvailabilityRevision((value) => value + 1);
     } finally {
       setSending(false);
     }
@@ -328,7 +357,7 @@ export function PublicSite() {
                 <div className="field"><label htmlFor="client-notes">Observação <span>(opcional)</span></label><textarea id="client-notes" maxLength={500} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Conte algo que devemos saber..." /></div>
                 <input className="honeypot" tabIndex={-1} autoComplete="off" aria-hidden="true" value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} />
                 <button className="button button-gold submit-budget" disabled={sending}>{sending ? <><LoaderCircle className="spin" /> Enviando...</> : <><MessageCircle /> Enviar e abrir WhatsApp</>}</button>
-                <p className="form-note">O horário será reservado após a confirmação do estúdio.</p>
+                <p className="form-note">Ao enviar, o horário fica reservado enquanto o Studio confirma seu atendimento.</p>
               </form>
             </>}
           </div>
