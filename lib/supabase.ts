@@ -120,7 +120,7 @@ export async function supabaseRequest<T>(path: string, options: RequestInit = {}
 }
 
 export async function rpc<T>(name: string, body: unknown, authenticated = false) {
-  return supabaseRequest<T>(`rpc/${name}`, { method: "POST", body: JSON.stringify(body) }, authenticated);
+  return supabaseRequest<T>(`rpc/${name}`, { method: "POST", cache: "no-store", body: JSON.stringify(body) }, authenticated);
 }
 
 export function money(value: number | string | null | undefined) {
